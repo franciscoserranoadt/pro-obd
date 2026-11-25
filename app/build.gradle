@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+// La versión se numera sola con cada compilación de GitHub Actions (igual que Pro Radio)
+def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+
+android {
+    namespace 'es.proobd.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'es.proobd.app'
+        minSdk 26
+        targetSdk 34
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    signingConfigs {
+        fija {
+            // Firma fija: NO CAMBIAR NUNCA, o las actualizaciones dejarán de instalarse encima
+            storeFile rootProject.file('pro-obd.jks')
+            storePassword 'proobd2026'
+            keyAlias 'proobd'
+            keyPassword 'proobd2026'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fija
+        }
+        debug {
+            signingConfig signingConfigs.fija
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

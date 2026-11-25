@@ -1,0 +1,3 @@
+• Primera versión de Pro OBD.
+• Panel con velocidad, revoluciones, temperatura del motor, consumo y batería.
+• Leer y borrar códigos de avería.

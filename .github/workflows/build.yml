@@ -1,0 +1,52 @@
+name: Compilar APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Preparar APK
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk ProOBD.apk
+          echo "${{ github.run_number }} 1.0.${{ github.run_number }}" > version.txt
+          if [ -f CAMBIOS.txt ]; then cat CAMBIOS.txt >> version.txt; fi
+          cat version.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ProOBD
+          path: ProOBD.apk
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ultima --yes --cleanup-tag || true
+          sleep 5
+          for i in 1 2 3 4 5; do
+            gh release create ultima ProOBD.apk version.txt --title "Pro OBD (última versión)" --notes "APK para instalar en el móvil y en la pantalla del coche. Después se actualiza sola desde la app." && exit 0
+            echo "Reintento $i…"; sleep 15
+            gh release delete ultima --yes --cleanup-tag || true
+          done
+          exit 1

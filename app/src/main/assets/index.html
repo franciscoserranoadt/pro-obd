@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pro OBD</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo"></span>Pro <b>OBD</b></div>
+  <button class="pill" id="status" data-state="off"><span class="dot"></span><span id="statusText">Sin conectar</span></button>
+</header>
+
+<main>
+  <!-- PANEL -->
+  <section id="tab-panel" class="tab active">
+    <div class="grid">
+      <div class="card big" id="c-speed">
+        <div class="lbl">Velocidad</div>
+        <div class="val"><span id="v-speed">--</span><small>km/h</small></div>
+      </div>
+      <div class="card" id="c-rpm">
+        <div class="lbl">Revoluciones</div>
+        <div class="val"><span id="v-rpm">--</span><small>rpm</small></div>
+        <div class="bar"><i id="b-rpm"></i></div>
+      </div>
+      <div class="card" id="c-temp">
+        <div class="lbl">Temperatura motor</div>
+        <div class="val"><span id="v-temp">--</span><small>°C</small></div>
+        <div class="bar temp"><i id="b-temp"></i></div>
+        <div class="hint" id="h-temp"></div>
+      </div>
+      <div class="card" id="c-fuel">
+        <div class="lbl" id="l-fuel">Consumo</div>
+        <div class="val"><span id="v-fuel">--</span><small id="u-fuel">L/100 km</small></div>
+        <div class="sub" id="s-trip">Viaje: -- L/100 · -- km</div>
+      </div>
+      <div class="card" id="c-batt">
+        <div class="lbl">Batería</div>
+        <div class="val"><span id="v-batt">--</span><small>V</small></div>
+        <div class="hint" id="h-batt"></div>
+      </div>
+      <div class="card small" id="c-extra">
+        <div class="row"><span>Carga motor</span><b id="v-load">--</b></div>
+        <div class="row"><span>Gastado en el viaje</span><b id="v-tripL">--</b></div>
+        <div class="row" id="r-level" hidden><span>Depósito</span><b id="v-level">--</b></div>
+        <button class="link" id="btnTrip">Reiniciar viaje</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- AVERÍAS -->
+  <section id="tab-dtc" class="tab">
+    <div class="dtc-head">
+      <div>
+        <h2>Códigos de avería</h2>
+        <p class="muted" id="milText">Pulsa «Leer averías» con el contacto puesto.</p>
+      </div>
+      <div class="btns">
+        <button class="btn primary" id="btnRead">Leer averías</button>
+        <button class="btn danger" id="btnClear">Borrar averías</button>
+      </div>
+    </div>
+    <div id="dtcList" class="dtc-list"></div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="tab-cfg" class="tab">
+    <div class="cfg">
+      <div class="card block">
+        <h3>Adaptador OBD</h3>
+        <p class="muted">Elige tu adaptador. Si no sale en la lista, emparéjalo primero en el Bluetooth de Android (código <b>1234</b> o <b>0000</b>).</p>
+        <div id="devList" class="dev-list"></div>
+        <div class="btns">
+          <button class="btn" id="btnRefresh">Actualizar lista</button>
+          <button class="btn" id="btnBt">Abrir Bluetooth</button>
+          <button class="btn danger" id="btnDisc">Desconectar</button>
+        </div>
+      </div>
+
+      <div class="card block">
+        <h3>Motor</h3>
+        <div class="seg" id="engine">
+          <button data-v="1.2">1.2 DIG-T (115 CV)</button>
+          <button data-v="1.3">1.3 DIG-T (140/160 CV)</button>
+        </div>
+        <p class="muted">Solo se usa si el coche no da el sensor de aire (MAF) para calcular el consumo.</p>
+      </div>
+
+      <div class="card block">
+        <h3>Ajustar el consumo</h3>
+        <p class="muted">Llena el depósito y pon el viaje a cero. En el siguiente repostaje, escribe los litros que has echado: la app se corrige sola.</p>
+        <div class="inline">
+          <input type="number" id="realL" inputmode="decimal" placeholder="Litros echados">
+          <button class="btn primary" id="btnCal">Corregir</button>
+        </div>
+        <p class="muted" id="corrText"></p>
+      </div>
+
+      <div class="card block">
+        <h3>Otros</h3>
+        <label class="sw"><input type="checkbox" id="demo"><span></span>Modo demostración (datos de prueba)</label>
+        <label class="sw"><input type="checkbox" id="logOn"><span></span>Ver lo que dice el adaptador (para revisar fallos)</label>
+        <pre id="log" hidden></pre>
+        <div class="btns">
+          <button class="btn" id="btnUpd">Buscar actualizaciones</button>
+        </div>
+        <p class="muted" id="verText"></p>
+        <p class="muted" id="infoText"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="panel" class="active"><svg viewBox="0 0 24 24"><path d="M12 4a9 9 0 0 0-9 9c0 2 .7 3.9 1.9 5.4l1.5-1.3A7 7 0 1 1 19 13c0 1.6-.6 3.1-1.4 4.1l1.5 1.3A9 9 0 0 0 12 4zm4.2 4.4-5 4.3a1.6 1.6 0 1 0 2.1 2.1z"/></svg>Panel</button>
+  <button data-tab="dtc"><svg viewBox="0 0 24 24"><path d="M5 9h2V7h4V5h6v2h2v4h2v6h-2v2h-4v-2h-2l-2 2H7v-4H5v2H3V9h2z"/></svg>Averías<em id="dtcBadge" hidden>0</em></button>
+  <button data-tab="cfg"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.7a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>Ajustes</button>
+</nav>
+
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <h3 id="mTitle"></h3>
+    <p id="mText"></p>
+    <div class="btns">
+      <button class="btn" id="mNo">Cancelar</button>
+      <button class="btn danger" id="mYes">Sí, borrar</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="dtc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
