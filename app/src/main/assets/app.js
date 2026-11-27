@@ -199,7 +199,7 @@
     document.querySelectorAll("#engine button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === e); });
   }
   document.querySelectorAll("#engine button").forEach(function (b) {
-    b.onclick = function () { setPref("engine", b.dataset.v); renderEngine(); };
+    b.onclick = function () { setPref("engine", b.dataset.v); renderEngine(); syCfgChanged(); };
   });
   function renderCorr() {
     var c = parseFloat(pref("correction", "1")) || 1;
@@ -213,7 +213,7 @@
     var c = (parseFloat(pref("correction", "1")) || 1) * real / app;
     c = Math.max(0.6, Math.min(1.4, c));
     setPref("correction", c.toFixed(3));
-    renderCorr();
+    renderCorr(); syCfgChanged();
     $("realL").value = "";
     toast("Consumo corregido");
   };
@@ -258,7 +258,75 @@
   $("verText").textContent = "Versión " + (A ? A.version() : "de prueba");
 
   // ------------------------------------------------------------ arranque
-  window.OBD = { onStatus: onStatus, onData: function (d) { if (!demoOn() || d.info) onData(d); }, onDtc: onDtc, onLog: onLog,
+  // ------------------------------------------------------------ Código Pro: móvil ⇄ coche (prosync.js)
+  // Se sincronizan el motor y la corrección, la última lectura de averías y los km que cuenta la app
+  // (Pro Garaje los usa para saber los km del coche).
+  function lsJ(k, d) { try { var v = localStorage.getItem("obd_sy_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+  function lsS(k, v) { try { localStorage.setItem("obd_sy_" + k, JSON.stringify(v)); } catch (e) {} }
+  var SY = { cfgT: lsJ("cfgT", 0), dtc: lsJ("dtc", null), odo: lsJ("odo", { km: 0, t: 0 }) };
+  function syGet() {
+    return { cfg: { engine: pref("engine", "1.2"), correction: String(parseFloat(pref("correction", "1")) || 1), t: SY.cfgT }, dtc: SY.dtc, odo: SY.odo };
+  }
+  function canon(x) { return window.PS ? PS.canon(x) : JSON.stringify(x); }
+  function newer(a, b) { if (!a) return b; if (!b) return a; if ((a.t || 0) !== (b.t || 0)) return (a.t || 0) > (b.t || 0) ? a : b; return canon(a) >= canon(b) ? a : b; }
+  function syMerge(L, R) {
+    var o = { km: Math.max((L.odo || {}).km || 0, (R.odo || {}).km || 0), t: Math.max((L.odo || {}).t || 0, (R.odo || {}).t || 0) };
+    return { cfg: newer(L.cfg, R.cfg), dtc: newer(L.dtc, R.dtc), odo: o };
+  }
+  function syApply(m) {
+    var msg = "";
+    if (m.cfg && (m.cfg.t || 0) > SY.cfgT) {
+      setPref("engine", m.cfg.engine); setPref("correction", m.cfg.correction);
+      SY.cfgT = m.cfg.t; lsS("cfgT", SY.cfgT); renderEngine(); renderCorr(); msg = "Ajustes recibidos del otro aparato";
+    }
+    if (m.dtc && (!SY.dtc || (m.dtc.t || 0) > (SY.dtc.t || 0))) {
+      SY.dtc = m.dtc; lsS("dtc", SY.dtc); showDtc(SY.dtc, true); msg = "Lectura de averías recibida del otro aparato";
+    }
+    if (m.odo && m.odo.km > (SY.odo.km || 0)) {
+      if (A && A.odoAtLeast) A.odoAtLeast(String(m.odo.km));
+    }
+    if (m.odo) { SY.odo = m.odo; lsS("odo", SY.odo); }
+    if (msg) toast("📲 " + msg);
+  }
+  function syCfgChanged() { SY.cfgT = Date.now(); lsS("cfgT", SY.cfgT); if (window.PS) PS.changed("obd"); }
+  var odoPushT = 0;
+  function syOdo(km, force) {
+    if (!(km >= 0) || km <= (SY.odo.km || 0) + 0.05) return;
+    if (!force && km - (SY.odo.km || 0) < 0.5 && Date.now() - odoPushT < 600000) return;
+    if (!force && Date.now() - odoPushT < 180000) return;  // como mucho cada 3 minutos conduciendo
+    odoPushT = Date.now();
+    SY.odo = { km: Math.round(km * 100) / 100, t: Date.now() }; lsS("odo", SY.odo);
+    if (window.PS) PS.changed("obd", 2000);
+  }
+  function fmtDate(t) { var d = new Date(t); return d.toLocaleDateString("es-ES") + " " + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); }
+  function showDtc(r, remote) {
+    onDtc(r.cleared ? { mil: r.mil, stored: [], pending: [], permanent: [] } : r);
+    var p = document.createElement("p"); p.className = "muted"; p.style.gridColumn = "1/-1";
+    p.textContent = "Última lectura: " + fmtDate(r.t) + (remote ? " (en el otro aparato)" : "");
+    $("dtcList").appendChild(p);
+  }
+  if (window.PS) {
+    PS.register("obd", {
+      get: syGet, merge: syMerge, apply: syApply,
+      hasData: function (d) { return d.cfg.t > 0 || !!d.dtc || d.odo.km > 0; }
+    });
+    var hold = $("psHold");
+    if (hold) hold.appendChild(PS.box({ toast: toast, what: "el motor y la corrección del consumo, la última lectura de averías y los km que cuenta Pro OBD (Pro Garaje los usa para los km del coche)." }));
+  }
+  if (SY.dtc) showDtc(SY.dtc, false);
+
+  window.OBD = { onStatus: function (s, m) { onStatus(s, m); if (s !== "connected" && s !== "demo" && A && A.odo) syOdo(parseFloat(A.odo()), true); },
+    onData: function (d) { if (!demoOn() || d.info) { onData(d); if (!d.info && !d.noCar && d.odoKm != null) syOdo(d.odoKm, false); } },
+    onDtc: function (r) {
+      if (!demoOn() && !r.error) {
+        SY.dtc = { t: Date.now(), mil: !!r.mil, cleared: !!r.cleared, stored: r.stored || [], pending: r.pending || [], permanent: r.permanent || [] };
+        lsS("dtc", SY.dtc); if (window.PS) PS.changed("obd", 1000);
+        showDtc(SY.dtc, false); if (r.cleared) toast("Averías borradas");
+        return;
+      }
+      onDtc(r);
+    },
+    onLog: onLog,
     toast: toast, refreshDevices: refreshDevices, showTab: showTab };
   renderEngine(); renderCorr(); refreshDevices();
   if (pref("demo", "0") === "1") { $("demo").checked = true; setDemo(true); }

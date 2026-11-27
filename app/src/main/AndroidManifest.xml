@@ -10,6 +10,14 @@
 
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
+    <!-- Las demás apps Pro, para pasarles el Código Pro -->
+    <queries>
+        <package android:name="com.fserrano.promaps" />
+        <package android:name="es.proradio.app" />
+        <package android:name="es.proinicio.app" />
+        <package android:name="es.progaraje.app" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:hardwareAccelerated="true"
@@ -29,5 +37,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Código Pro: recibe el código de vinculación de las demás apps Pro -->
+        <receiver
+            android:name=".SyncReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="es.pro.SYNC_CODE" />
+                <action android:name="es.pro.SYNC_ASK" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

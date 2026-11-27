@@ -51,6 +51,8 @@ final class ObdLink {
 
     // Viaje
     private double tripKm, tripLitres;
+    // Cuentakilómetros propio de Pro OBD (nunca se pone a cero; Pro Garaje lo usa para los km del coche)
+    private double odoKm;
     private long tripLastData;
     private long lastSample;
 
@@ -70,6 +72,11 @@ final class ObdLink {
     synchronized double[] trip() { return new double[]{tripKm, tripLitres, tripLastData}; }
 
     synchronized void resetTrip() { tripKm = 0; tripLitres = 0; }
+
+    synchronized void setOdo(double km) { odoKm = km; }
+    synchronized double odo() { return odoKm; }
+    /** Si el otro aparato ya ha contado más km, se sigue desde ahí. */
+    synchronized void raiseOdo(double km) { if (km > odoKm) odoKm = km; }
 
     boolean isRunning() { return running; }
 
@@ -328,7 +335,7 @@ final class ObdLink {
                     if (now - tripLastData > 30 * 60 * 1000L) { tripKm = 0; tripLitres = 0; }  // viaje nuevo
                     if (lastSample > 0) {
                         double dt = Math.min(5, (now - lastSample) / 1000.0);
-                        if (!Double.isNaN(speed)) tripKm += speed * dt / 3600.0;
+                        if (!Double.isNaN(speed)) { tripKm += speed * dt / 3600.0; odoKm += speed * dt / 3600.0; }
                         if (!Double.isNaN(lph)) tripLitres += lph * dt / 3600.0;
                     }
                     tripLastData = now;
@@ -353,6 +360,7 @@ final class ObdLink {
                 double[] t = trip();
                 d.put("tripKm", t[0]);
                 d.put("tripL", t[1]);
+                d.put("odoKm", odo());
                 d.put("noCar", noCar);
             } catch (Exception ignored) { }
             listener.onData(d);

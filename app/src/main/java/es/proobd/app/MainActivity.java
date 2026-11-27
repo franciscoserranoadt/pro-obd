@@ -51,6 +51,7 @@ public class MainActivity extends Activity implements ObdLink.Listener {
         link = new ObdLink(this);
         applyConfig();
         link.setTrip(prefs.getFloat("tripKm", 0), prefs.getFloat("tripL", 0), prefs.getLong("tripLast", 0));
+        try { link.setOdo(Double.parseDouble(prefs.getString("odoKm", "0"))); } catch (Exception ignored) { }
 
         web = new WebView(this);
         web.setBackgroundColor(0xFF0B0F14);
@@ -69,6 +70,7 @@ public class MainActivity extends Activity implements ObdLink.Listener {
             }
         });
         web.addJavascriptInterface(new Bridge(), "Android");
+        web.addJavascriptInterface(new ProSync.Js(this, web), "ProSync");
         web.loadUrl("file:///android_asset/index.html");
         setContentView(web);
 
@@ -81,6 +83,12 @@ public class MainActivity extends Activity implements ObdLink.Listener {
         saveTrip();
         link.stop();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (web != null) web.evaluateJavascript("window.PS&&PS.resume()", null);
     }
 
     @Override
@@ -115,7 +123,8 @@ public class MainActivity extends Activity implements ObdLink.Listener {
     private void saveTrip() {
         if (link == null || prefs == null) return;
         double[] t = link.trip();
-        prefs.edit().putFloat("tripKm", (float) t[0]).putFloat("tripL", (float) t[1]).putLong("tripLast", (long) t[2]).apply();
+        prefs.edit().putFloat("tripKm", (float) t[0]).putFloat("tripL", (float) t[1]).putLong("tripLast", (long) t[2])
+                .putString("odoKm", String.valueOf(link.odo())).apply();
     }
 
     private void applyConfig() {
@@ -193,7 +202,10 @@ public class MainActivity extends Activity implements ObdLink.Listener {
     @Override
     public void onData(JSONObject data) {
         js("OBD.onData(" + data + ")");
+        long now = System.currentTimeMillis();
+        if (now - lastSave > 60000) { lastSave = now; saveTrip(); }  // guarda viaje y km cada minuto
     }
+    private long lastSave = 0;
 
     @Override
     public void onDtc(JSONObject result) {
@@ -329,6 +341,15 @@ public class MainActivity extends Activity implements ObdLink.Listener {
 
         @JavascriptInterface
         public void resetTrip() { link.resetTrip(); saveTrip(); }
+
+        /** Km contados por el otro aparato (Código Pro): se sigue desde el mayor. */
+        @JavascriptInterface
+        public void odoAtLeast(String km) {
+            try { link.raiseOdo(Double.parseDouble(km)); saveTrip(); } catch (Exception ignored) { }
+        }
+
+        @JavascriptInterface
+        public String odo() { return String.valueOf(link.odo()); }
 
         @JavascriptInterface
         public void setLog(boolean on) { link.setLog(on); }
