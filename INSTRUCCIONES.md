@@ -20,6 +20,9 @@ App Android propia (APK) que se conecta por Bluetooth a un adaptador ELM327 ench
 - `dtc.js`: descripciones en español de los códigos genéricos más habituales.
 - Modo demostración en Ajustes, para ver la app sin coche.
 
+## Código Pro: móvil ⇄ coche (27-nov)
+Ajustes → **Móvil y coche** → Código Pro: un solo código para todas las apps Pro (ver `codigo-pro/LEEME - Código Pro.md` en el proyecto). Canal `obd`: motor y corrección (el más nuevo), última lectura de averías (la más nueva, con fecha) y el **cuentakilómetros propio** de Pro OBD (`odoKm` en `ObdLink.java`, nunca se pone a cero, se guarda cada minuto; entre aparatos manda el mayor). Se envía como mucho cada 3 minutos conduciendo y al desconectar. **Pro Garaje** lee este canal para saber los km reales del coche. Archivos: `ProSync.java`, `SyncReceiver.java`, `assets/prosync.js` (iguales en las 5 apps).
+
 ## Publicar una versión nueva
 1. Cambiar el código.
 2. Escribir las novedades en `CAMBIOS.txt` (salen en el aviso de actualización).
